@@ -1,0 +1,27 @@
+.App {
+  max-width: 500px;
+  margin: 20px auto;
+
+  .App-text {
+    color: black;
+    font-size: 20px;
+  }
+
+  .App-flex {
+    display: flex;
+    flex-direction: row;
+  }
+
+  .App-title {
+    display: flex;
+    flex-direction: column;
+
+    .App-logo {
+      margin: 0 10px 0 0;
+    }
+
+    .App-title-text {
+      font-size: 20px;
+    }
+  }
+}

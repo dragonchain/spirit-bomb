@@ -1,0 +1,20 @@
+// Import base theme
+@import '~@dragonchain-dev/dragon-dashboard/dist/assets/styles/dashboard_theme';
+
+// Import base styles
+@import '~@dragonchain-dev/dragon-dashboard/dist/assets/styles/dashboard';
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #00b140;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
