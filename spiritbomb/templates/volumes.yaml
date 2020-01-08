@@ -1,0 +1,12 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ .Release.Name }}-redis-volume
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}-redis-volume
+    helm.sh/chart: {{ include "spiritbomb.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/component: redis-volume
+spec:
+{{ toYaml .Values.redis.storage.spec | indent 2 }}

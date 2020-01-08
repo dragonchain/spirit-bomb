@@ -1,0 +1,185 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-controller
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}-controller
+    helm.sh/chart: {{ include "spiritbomb.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/component: controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Release.Name }}-controller
+  strategy:
+      type: Recreate
+  template:
+    metadata:
+      name: {{ .Release.Name }}-controller
+      labels:
+        app.kubernetes.io/name: {{ .Release.Name }}-controller
+        helm.sh/chart: {{ include "spiritbomb.chart" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        app.kubernetes.io/component: controller
+    spec:
+      serviceAccountName: {{ .Release.Name }}-account
+      automountServiceAccountToken: true
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: {{ .Release.Name }}-controller
+          image: "{{ .Values.controller.image.repository }}:{{ .Values.controller.image.tag }}"
+          imagePullPolicy: Always
+          command: ["node"]
+          args: ["dist/controller/app.js"]
+          env:
+            - name: DEPLOYMENT_NAME
+              value: {{ .Release.Name }}-worker
+            - name: REDIS_ENDPOINT
+              value: {{ .Release.Name }}-redis
+            - name: CONFIG_MOUNT
+              value: /etc/config
+            - name: STAGE
+              value: "{{ .Values.stage }}"
+          resources:
+{{ toYaml .Values.controller.resources | indent 12 }}
+          volumeMounts:
+            - mountPath: /etc/config
+              name: config
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-controller-values
+            items:
+              - key: targetRate
+                path: targetRate
+              - key: maxWorkers
+                path: maxWorkers
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-worker
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}-worker
+    helm.sh/chart: {{ include "spiritbomb.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Release.Name }}-worker
+  strategy:
+      type: Recreate
+  template:
+    metadata:
+      name: {{ .Release.Name }}-worker
+      labels:
+        app.kubernetes.io/name: {{ .Release.Name }}-worker
+        helm.sh/chart: {{ include "spiritbomb.chart" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        app.kubernetes.io/component: worker
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: {{ .Release.Name }}-worker
+          image: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
+          imagePullPolicy: Always
+          command: ["node"]
+          args: ["dist/index.js"]
+          env:
+            - name: REDIS_ENDPOINT
+              value: {{ .Release.Name }}-redis
+            - name: CONCURRENCY
+              value: "{{ .Values.worker.threads }}"
+            - name: BULK
+              value:  "{{ .Values.worker.bulk }}"
+            - name: STAGE
+              value: "{{ .Values.stage }}"
+          resources:
+{{ toYaml .Values.worker.resources | indent 12 }}
+          volumeMounts:
+            - mountPath: /home/node/.dragonchain
+              name: config
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-chain-credentials
+            items:
+              - key: chain-credentials
+                path: credentials
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-redis
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}-redis
+    helm.sh/chart: {{ include "spiritbomb.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/component: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Release.Name }}-redis
+  strategy:
+      type: Recreate
+  template:
+    metadata:
+      name: {{ .Release.Name }}-redis
+      labels:
+        app.kubernetes.io/name: {{ .Release.Name }}-redis
+        helm.sh/chart: {{ include "spiritbomb.chart" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        app.kubernetes.io/component: redis
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        sysctls:
+        - name: net.core.somaxconn
+          value: "1024"
+      containers:
+        - name: {{ .Release.Name }}-redis
+          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+          imagePullPolicy: Always
+          command: ["redis-server"]
+          args: ["/usr/local/etc/redis/redis.conf"]
+          ports:
+            - name: http
+              containerPort: 6379
+          resources:
+{{ toYaml .Values.redis.resources | indent 12 }}
+          volumeMounts:
+            - mountPath: /usr/local/etc/redis
+              name: config
+            - mountPath: /data
+              name: storage
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-redis-config
+            items:
+              - key: redis-config
+                path: redis.conf
+        - name: storage
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-redis-volume
